@@ -48,7 +48,7 @@ pipeline {
                 echo '-=- Clean docker images & container -=-'
                 sh 'ssh -v -o StrictHostKeyChecking=no vagrant@192.168.33.20 docker stop demo-isika || true'
                 sh 'ssh -v -o StrictHostKeyChecking=no vagrant@192.168.33.20 docker rm demo-isika || true'
-		sh 'ssh -v -o StrictHostKeyChecking=no ubuntu@35.181.151.234 docker rmi philaga/demo-isika || true'
+		sh 'ssh -v -o StrictHostKeyChecking=no vagrant@192.168.33.20 docker rmi philaga/demo-isika || true'
                 sh 'docker rmi demo-isika || true'
             }
         }
