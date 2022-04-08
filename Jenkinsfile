@@ -1,5 +1,9 @@
 pipeline {
     agent any
+    
+    environment {
+        DOCKERHUB_CREDENTIALS=credentials('DockerHub-credential')
+    }
 
     stages {
         stage('Checkout') {
@@ -38,48 +42,60 @@ pipeline {
                 }
             }
         }
-        stage('Transfer file') {
-            steps {
-                script {
-                    sshPublisher(publishers: [
-                        sshPublisherDesc(configName: 'docker-host', transfers:[
-                            sshTransfer(
-                              sourceFiles:"target/*.jar",
-                              removePrefixe:"target",
-                              remoteDirectory:"//home//vagrant",
-                              execCommand: "ls /"
-                            ),
-                            sshTransfer(
-                              sourceFiles:"Dockerfile",
-                              removePrefixe:"",
-                              remoteDirectory:"//home//vagrant",
-                              execCommand: "sudo docker build -t demo-isika ."
-                            ),
-                            
-                        ])
-                    ])                
-                }
-            }
-        }
+        
          stage('Cleaning') {
             steps {
                 echo '-=- Clean docker images & container -=-'
-                sh 'ssh -v -o StrictHostKeyChecking=no vagrant@192.168.33.20 sudo docker stop demo-isika || true'
-                sh 'ssh -v -o StrictHostKeyChecking=no vagrant@192.168.33.20 sudo docker rm demo-isika || true'
-                sh 'ssh -v -o StrictHostKeyChecking=no vagrant@192.168.33.20 sudo docker rmi demo-isika || true'
+                sh 'ssh -v -o StrictHostKeyChecking=no vagrant@192.168.33.20 docker stop demo-isika || true'
+                sh 'ssh -v -o StrictHostKeyChecking=no vagrant@192.168.33.20 docker rm demo-isika || true'
+                sh 'docker rmi demo-isika || true'
             }
         }
          stage('Construct image to Staging') {
             steps {
                 echo '-=- Docker build -=-'
-                sh 'ssh -v -o StrictHostKeyChecking=no vagrant@192.168.33.20 sudo docker build -t demo-isika .'
+                sh 'docker build -t demo-isika .'
             }
         }
-         stage('Run container') {
+         stage('Tag') {
             steps {
-                echo '-=- Compile project -=-'
-                sh 'ssh -v -o StrictHostKeyChecking=no vagrant@192.168.33.20 sudo docker run -d --name demo-isika -p 8080:8080 demo-isika'
+                echo '-=- Login to DockerHub -=-'
+                sh 'docker tag demo-isika philaga/demo-isika'
             }
+        }
+        stage('Login') {
+            steps {
+                echo '-=- Login to DockerHub -=-'
+                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+            }
+        }
+        stage('Push') {
+            steps {
+                echo '-=- Push to DockerHub -=-'
+                sh 'docker push philaga/demo-isika'
+            }
+        }
+        stage('Run container to local') {
+            steps {
+                echo '-=- Run container project -=-'
+                sh 'ssh -v -o StrictHostKeyChecking=no vagrant@192.168.33.20 sudo docker run -d --name demo-isika -p 8080:8080 philaga/demo-isika'
+            }
+        }
+        stage ('Deploy To Prod'){
+              input{
+                message "Do you want to proceed for production deployment?"
+              }
+            steps {
+                sh 'echo "Deploy into Prod"'
+                sh 'ssh -v -o StrictHostKeyChecking=no ubuntu@35.181.151.234 docker stop demo-isika || true'
+                sh 'ssh -v -o StrictHostKeyChecking=no ubuntu@35.181.151.234 docker rm demo-isika || true'
+                sh 'ssh -v -o StrictHostKeyChecking=no ubuntu@35.181.151.234 sudo docker run -d --name demo-isika -p 8080:8080 philaga/demo-isika'
+            }
+        }
+    }
+    post {
+        always {
+            sh 'docker logout'
         }
     }
 }
