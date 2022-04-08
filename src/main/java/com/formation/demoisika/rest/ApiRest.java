@@ -15,7 +15,7 @@ public class ApiRest {
 	
 	@RequestMapping("/")
 	public String hello() {
-		return "Hello World from Isika V1";
+		return "Hello World from Isika V2";
 	}
 	
 	@RequestMapping("/sum")
